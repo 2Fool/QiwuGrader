@@ -78,6 +78,10 @@ class Grader():
                 question_str = str(question)
             else:
                 question_str = question
+
+            if question == "======":
+                uid = "grader_" + id_generator(20)
+                continue
             response = test_service.handle_chat(uid, question_str, login_wait=self.question_interval)
             chat_key = None
             if hasattr(test_service, 'tokens'):
