@@ -8,6 +8,7 @@ from qiwugrader.grader.grader_multitask import GraderThread
 from qiwugrader.grader.grader_multitask import GraderProcess
 
 from qiwugrader.grader.grader_core import Grader
+from qiwugrader.model import xlsx
 from qiwugrader.model.shared_counter import SharedCounter
 
 from qiwugrader.controller.config_file_handler import YamlConfigFileHandler
@@ -20,15 +21,20 @@ from qiwugrader.grader.dns_cache import _set_dns_cache
 GRADER_VERSION = '1.7.4'
 
 
-def run(test_config_file_name, test_session, test_length):
+def run(test_config_file_name, test_session, test_length, system_xlsx_name=''):
     test_config = YamlConfigFileHandler(test_config_file_name)
 
     if test_session == 1:  # single session grade
-        # init_log_file()
-
-        grader = Grader()
-        grader.init(test_config)
-        grader.test()
+        init_log_file()
+        if len(system_xlsx_name) > 0:
+            xlsx_list = xlsx.xlsx(system_xlsx_name)
+            grader = Grader()
+            grader.init(test_config, xlsx_list)
+            grader.test()
+        else:
+            grader = Grader()
+            grader.init(test_config)
+            grader.test()
     elif test_session > 1:  # multi session grade
         # calculate thread spawn interval
         spawn_interval = test_length / (test_session * 1.0)
@@ -122,10 +128,17 @@ def main():
     test_config_file_name_list = []
     argv = sys.argv[1:]
 
+    xlsx_name = ''
+
     for yml in sys.argv[1:]:
         if yml.endswith('.yml'):
             test_config_file_name_list.append(yml)
             argv.remove(yml)
+
+        if yml.endswith('.xlsx'):
+            xlsx_name = yml
+            argv.remove(yml)
+
 
     if len(argv) >= 1:
         test_session = int(argv[0])
@@ -141,7 +154,7 @@ def main():
     roll_log_file = init_log_file()
 
     for test_config_file_name in test_config_file_name_list:
-        run(test_config_file_name, test_session=test_session, test_length=test_length)
+        run(test_config_file_name, test_session=test_session, test_length=test_length, system_xlsx_name=xlsx_name)
         if test_config_file_name != test_config_file_name_list[-1]:
             report_logger.info('=====' * 20)
             if test_session == 1:

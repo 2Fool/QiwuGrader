@@ -168,7 +168,7 @@ class Grader():
         report_logger.info("{0} grade: {1} / {2}\ntime: {3} avg: {4}".format(name, grade, len(questions), total_time, total_time/len(questions)))
         return grade == len(questions) and True or False, total_time
 
-    def init(self, config):
+    def init(self, config, question: dict = None):
         assert(isinstance(config, YamlConfigFileHandler))
         self.config = config
 
@@ -197,6 +197,8 @@ class Grader():
             self.robots = robots
 
         self.questions = config.get_config("questions", self.questions)
+        if question and len(question) > 0:
+            self.questions = question
         self.answers = config.get_config("answers", self.answers)
 
         configuration = config.get_config("output", {
