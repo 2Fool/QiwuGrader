@@ -50,15 +50,20 @@ setup(
     # 模块的关键词，使用空格分割
     keywords='qiwu qiwugrader',
     # 依赖模块
-    install_requires=['requests', 'pyyaml', 'enum34'],
+    install_requires=['requests', 'pyyaml', 'enum34', 'xlrd', 'gevent'],
     # 分组依赖模块，可使用pip install sampleproject[dev] 安装分组内的依赖
     extras_require={
         'srt': ['srt'],
+        'pyqt5': ['pyqt5'],
     },
     # 类似package_data, 但指定不在当前包目录下的文件
     # data_files=[('my_data', ['data/data_file'])],
     # 新建终端命令并链接到模块函数
-    entry_points={'console_scripts': ['qiwugrader = qiwugrader:main']},
+    entry_points={'console_scripts': [
+        'qiwugrader = qiwugrader:main',
+        'qiwugrader.compare = qiwugrader:compare',
+        'qiwugrader.generate = qiwugrader:generate',
+    ]},
     # 项目相关的额外链接
     project_urls={
         'Bug Reports': 'https://github.com/noahzark/QiwuGrader/issues',

@@ -2,7 +2,7 @@
 import requests
 from requests.adapters import HTTPAdapter
 import json
-from qiwugrader.model.basic_request import BasicRequest
+from qiwugrader.request.basic_request import BasicRequest
 import urllib.parse
 
 from qiwugrader.grader.compatible import encode_str, to_str
@@ -53,10 +53,10 @@ class SingleDialogue(BasicRequest):
 
         if self.method == "POST":
             headers['content-type'] = self.type
-            if self.type.find('urlencoded') != -1:
-                form = urllib.parse.parse_qs(payload)
-                form['chat_key'] = [data['uid']]
-                payload = urllib.parse.urlencode(form)
+            # if self.type.find('urlencoded') != -1:
+            #     form = urllib.parse.parse_qs(payload)
+            #     form['chat_key'] = [data['uid']]
+            #     payload = urllib.parse.urlencode(form)
 
         r = None
         result = None
@@ -103,4 +103,4 @@ class SingleDialogue(BasicRequest):
                     return result[self.answer_key]
         elif result is None:
             return SingleDialogue.RESULT_NONE_REPLY
-        return result
+        return SingleDialogue.DEFAULT_REPLY

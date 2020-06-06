@@ -8,7 +8,6 @@ from qiwugrader.grader.grader_multitask import GraderThread
 from qiwugrader.grader.grader_multitask import GraderProcess
 
 from qiwugrader.grader.grader_core import Grader
-from qiwugrader.model import xlsx
 from qiwugrader.model.shared_counter import SharedCounter
 
 from qiwugrader.controller.config_file_handler import YamlConfigFileHandler
@@ -18,20 +17,32 @@ from qiwugrader.grader.init import report_logger
 
 from qiwugrader.grader.dns_cache import _set_dns_cache
 
-GRADER_VERSION = '1.7.4'
+GRADER_VERSION = '1.9.5'
 
 
-def run(test_config_file_name, test_session, test_length, system_xlsx_name=''):
+def run(test_config_file_name, test_session, test_length):
     test_config = YamlConfigFileHandler(test_config_file_name)
 
-    if test_session == 1:  # single session grade
-        init_log_file()
-        if len(system_xlsx_name) > 0:
-            xlsx_list = xlsx.xlsx(system_xlsx_name)
+    test_config_id = test_config.get_config('name', test_config.get_config('id', ''))
+    if test_config_file_name.find(test_config_id) == -1:
+        report_logger.error(
+            "file name: {} is different from config id/name: {}".format(test_config_file_name, test_config_id)
+        )
+        return
+
+    if test_session == -1:  # forever stable test
+        while True:
             grader = Grader()
-            grader.init(test_config, xlsx_list)
+            grader.init(test_config)
             grader.test()
-        else:
+    elif test_session == 1:  # single session grade
+        # init_log_file()
+
+        grader = Grader()
+        grader.init(test_config)
+        grader.test()
+    elif test_length == -1: # single session several round grade
+        for i in range(1, test_session):
             grader = Grader()
             grader.init(test_config)
             grader.test()
@@ -46,14 +57,11 @@ def run(test_config_file_name, test_session, test_length, system_xlsx_name=''):
         Handler_Class = GraderThread
 
         # use process to speed up grade
-        if test_session > 512:
+        if test_session > 512 or spawn_interval < 0.5:
             use_process = True
             handler_count = multiprocessing.cpu_count()
-            session_per_handler = test_session / handler_count
+            session_per_handler = test_session // handler_count
             Handler_Class = GraderProcess
-
-        # count the number of spawned sessions
-        session_count = 0
 
         # thread safe success counter
         success_count = SharedCounter()
@@ -74,13 +82,16 @@ def run(test_config_file_name, test_session, test_length, system_xlsx_name=''):
 
         warm_up_time = time.time()
         # Spawn threads
-        while session_count < handler_count:
+        sessions_to_distribute = test_session
+        while sessions_to_distribute > 0:
+            session_per_process = sessions_to_distribute > session_per_handler and session_per_handler or sessions_to_distribute
             grader_handler = Handler_Class(success_count, test_config, success_time_count,
-                                           loop=session_per_handler, spawn_interval=spawn_interval * handler_count)
+                                           loop=session_per_process,
+                                           spawn_interval=spawn_interval * handler_count)
             grader_handler.init()
 
             threads.append(grader_handler)
-            session_count += 1
+            sessions_to_distribute -= session_per_process
 
         report_logger.info("Warm up process finished in {0} seconds".format(time.time() - warm_up_time))
 
@@ -93,20 +104,20 @@ def run(test_config_file_name, test_session, test_length, system_xlsx_name=''):
             sleep(spawn_interval)
 
         report_logger.info("{0} sessions started in {1}".format(
-            int(session_count * session_per_handler), time.time() - launch_time))
+            int(test_session), time.time() - launch_time))
 
         # Wait for all threads to finish
         for grader_handler in threads:
             grader_handler.join()
 
-        questions_count = success_count.value() * len(test_config.get_config("questions"))
+        questions_count = success_count.value() * grader_handler.get_question_number()
         report_logger.info(
             "Result: {0} / {1} passed. Total time: {2}\nSuccess time: {3} Passed: {4} Success avg: {5}".format(
-                success_count.value(), int(session_count * session_per_handler),
+                success_count.value(), int(test_session),
                 time.time() - process_time,
                 success_time_count.value(),
                 questions_count,
-                success_time_count.value() / questions_count
+                success_time_count.value()
             )
         )
 
@@ -128,17 +139,10 @@ def main():
     test_config_file_name_list = []
     argv = sys.argv[1:]
 
-    xlsx_name = ''
-
     for yml in sys.argv[1:]:
         if yml.endswith('.yml'):
             test_config_file_name_list.append(yml)
             argv.remove(yml)
-
-        if yml.endswith('.xlsx'):
-            xlsx_name = yml
-            argv.remove(yml)
-
 
     if len(argv) >= 1:
         test_session = int(argv[0])
@@ -154,7 +158,7 @@ def main():
     roll_log_file = init_log_file()
 
     for test_config_file_name in test_config_file_name_list:
-        run(test_config_file_name, test_session=test_session, test_length=test_length, system_xlsx_name=xlsx_name)
+        run(test_config_file_name, test_session=test_session, test_length=test_length)
         if test_config_file_name != test_config_file_name_list[-1]:
             report_logger.info('=====' * 20)
             if test_session == 1:
